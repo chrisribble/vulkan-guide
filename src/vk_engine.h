@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <vk_descriptors.h>
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
 
@@ -63,6 +64,10 @@ public:
 	VkQueue _graphicsQueue;
 	uint32_t _graphicsQueueFamily;
 
+	DescriptorAllocator globalDescriptorAllocator;
+	VkDescriptorSet _drawImageDescriptors;
+	VkDescriptorSetLayout _drawImageDescriptorLayout;
+
 	VmaAllocator _allocator;
 	DeletionQueue _mainDeletionQueue;
 
@@ -88,6 +93,7 @@ private:
 	void init_swapchain();
 	void init_commands();
 	void init_sync_structures();
+	void init_descriptors();
 
 	void create_swapchain(uint32_t width, uint32_t height);
 	void destroy_swapchain();
