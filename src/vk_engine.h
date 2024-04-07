@@ -9,6 +9,8 @@
 struct FrameData {
 	VkCommandPool _commandPool;
 	VkCommandBuffer _mainCommandBuffer;
+	VkSemaphore _swapchainSemaphore, _renderSemaphore;
+	VkFence _renderFence;
 };
 
 constexpr unsigned int FRAME_OVERLAP = 2;
@@ -33,7 +35,7 @@ public:
 	VkSwapchainKHR _swapchain;
 	VkFormat _swapchainImageFormat;
 
-	std::vector<VkImage> _swapchainImage;
+	std::vector<VkImage> _swapchainImages;
 	std::vector<VkImageView> _swapchainImageViews;
 	VkExtent2D _swapchainExtent;
 
