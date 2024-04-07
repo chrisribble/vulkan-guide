@@ -1,11 +1,14 @@
 ﻿//> includes
-#include <cstdio>
 #include <vk_engine.h>
 #include <VkBootstrap.h>
+
+#include <stdio.h>
 
 #include <SDL.h>
 #include <SDL_vulkan.h>
 
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
 #include <vk_initializers.h>
 #include <vk_types.h>
 #include <vk_images.h>
@@ -99,10 +102,59 @@ void VulkanEngine::init_vulkan() {
     // use vkbootstrap to get a Graphics queue
     _graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
     _graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.physicalDevice = _chosenGPU;
+    allocatorInfo.device = _device;
+    allocatorInfo.instance = _instance;
+    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    vmaCreateAllocator(&allocatorInfo, &_allocator);
+
+    _mainDeletionQueue.push_function([this]() {
+        vmaDestroyAllocator(_allocator);
+    });
 }
 
 void VulkanEngine::init_swapchain() {
     create_swapchain(_windowExtent.width, _windowExtent.height);
+
+    //draw image size will match the window
+    VkExtent3D drawImageExtent = {
+        _windowExtent.width,
+        _windowExtent.height,
+        1
+    };
+
+    //hardcoding the draw format to 32 bit float
+    _drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+    _drawImage.imageExtent = drawImageExtent;
+
+    VkImageUsageFlags drawImageUsageFlags = {};
+    drawImageUsageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    drawImageUsageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    drawImageUsageFlags |= VK_IMAGE_USAGE_STORAGE_BIT;
+    drawImageUsageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    VkImageCreateInfo rimg_info = vkinit::image_create_info(_drawImage.imageFormat, drawImageUsageFlags, drawImageExtent);
+
+    //for the draw image, we want to allocate it from gpu local memory
+    VmaAllocationCreateInfo rimg_allocInfo = {};
+    rimg_allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    rimg_allocInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    //allocate and create the image
+    vmaCreateImage(_allocator, &rimg_info, &rimg_allocInfo, &_drawImage.image, &_drawImage.allocation, nullptr);
+
+    //build a image-view for the draw image to use for rendering
+    VkImageViewCreateInfo rview_info = vkinit::imageview_create_info(_drawImage.imageFormat, _drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    VK_CHECK(vkCreateImageView(_device, &rview_info, nullptr, &_drawImage.imageView));
+
+    //add to deletion queues
+    _mainDeletionQueue.push_function([this]() {
+        vkDestroyImageView(_device, _drawImage.imageView, nullptr);
+        vmaDestroyImage(_allocator, _drawImage.image, _drawImage.allocation);
+    });
 }
 
 void VulkanEngine::init_commands() {
@@ -172,6 +224,7 @@ void VulkanEngine::cleanup()
     if (_isInitialized) {
         // make sure the gpu has stopped doing its things
         vkDeviceWaitIdle(_device);
+        _mainDeletionQueue.flush();
 
         for (int i = 0; i < FRAME_OVERLAP; ++i) {
             vkDestroyCommandPool(_device, _frames[i]._commandPool, nullptr);
@@ -199,6 +252,8 @@ void VulkanEngine::cleanup()
 void VulkanEngine::draw() {
     // wait until the gpu has finished rendering the last frame. Timeout of 1s
     VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
+    get_current_frame()._deletionQueue.flush();
+
     VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._renderFence));
 
     //request image from the swapchain
