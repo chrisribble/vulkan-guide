@@ -446,8 +446,14 @@ void VulkanEngine::draw() {
     // execute a copy from the draw image into the swapchain
     vkutil::copy_image_to_image(cmd, _drawImage.image, _swapchainImages[swapchainImageIndex], _drawExtent, _swapchainExtent);
 
+    // set swapchain image layout to Attachment Optimal so we can draw it
+    vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    // draw imgui into the swapchain image
+    draw_imgui(cmd, _swapchainImageViews[swapchainImageIndex]);
+
     // set swapchain image to Present so we can show it on the screen
-    vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     //finalize the command buffer (we can no longer add commands, but it can now be executed)
     VK_CHECK(vkEndCommandBuffer(cmd));
@@ -499,6 +505,17 @@ void VulkanEngine::draw_background(VkCommandBuffer cmd) {
     vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height), 1);
 }
 
+void VulkanEngine::draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView) {
+    VkRenderingAttachmentInfo colorAttachment = vkinit::attachment_info(targetImageView, nullptr, VK_IMAGE_LAYOUT_GENERAL);
+    VkRenderingInfo renderInfo = vkinit::rendering_info(_swapchainExtent, &colorAttachment, nullptr);
+
+    vkCmdBeginRendering(cmd, &renderInfo);
+
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+
+    vkCmdEndRendering(cmd);
+}
+
 void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function) {
     VkCommandBuffer cmd = _immCommandBuffer;
 
@@ -529,8 +546,9 @@ void VulkanEngine::run() {
         // Handle events on queue
         while (SDL_PollEvent(&e) != 0) {
             // close the window when user alt-f4s or clicks the X button
-            if (e.type == SDL_QUIT)
+            if (e.type == SDL_QUIT) {
                 bQuit = true;
+            }
 
             if (e.type == SDL_WINDOWEVENT) {
                 if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) {
@@ -540,6 +558,9 @@ void VulkanEngine::run() {
                     stop_rendering = false;
                 }
             }
+
+            // send SDL event to imgui for handling
+            ImGui_ImplSDL2_ProcessEvent(&e);
         }
 
         // do not draw if we are minimized
@@ -548,6 +569,17 @@ void VulkanEngine::run() {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
+
+        // imgui new frame
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL2_NewFrame(_window);
+        ImGui::NewFrame();
+
+        // some imgui UI to test
+        ImGui::ShowDemoWindow();
+
+        // make imgui calculate internal draw structures
+        ImGui::Render();
 
         draw();
     }
