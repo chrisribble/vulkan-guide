@@ -1,4 +1,5 @@
 ﻿//> includes
+#include "fmt/core.h"
 #include "vk_pipelines.h"
 #include <vk_engine.h>
 #include <VkBootstrap.h>
@@ -315,7 +316,7 @@ void VulkanEngine::init_background_pipelines() {
     vkDestroyShaderModule(_device, gradientShader, nullptr);
     vkDestroyShaderModule(_device, skyShader, nullptr);
 
-    _mainDeletionQueue.push_function([&, this]() {
+    _mainDeletionQueue.push_function([=, this]() {
         vkDestroyPipelineLayout(_device, _gradientPipelineLayout, nullptr);
         vkDestroyPipeline(_device, sky.pipeline, nullptr);
         vkDestroyPipeline(_device, gradient.pipeline, nullptr);
