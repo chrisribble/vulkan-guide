@@ -3,3 +3,4 @@
 /assets/brickadia
 .cache/
 .vscode/
+*.spv

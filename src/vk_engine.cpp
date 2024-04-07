@@ -1,4 +1,5 @@
 ﻿//> includes
+#include "vk_pipelines.h"
 #include <vk_engine.h>
 #include <VkBootstrap.h>
 
@@ -46,6 +47,7 @@ void VulkanEngine::init()
     init_commands();
     init_sync_structures();
     init_descriptors();
+    init_pipelines();
 
     // everything went fine
     _isInitialized = true;
@@ -221,6 +223,47 @@ void VulkanEngine::init_descriptors() {
     vkUpdateDescriptorSets(_device, 1, &drawImageWrite, 0, nullptr);
 }
 
+void VulkanEngine::init_pipelines() {
+    init_background_pipelines();
+}
+
+void VulkanEngine::init_background_pipelines() {
+    VkPipelineLayoutCreateInfo computeLayout = {};
+    computeLayout.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    computeLayout.pNext = nullptr;
+    computeLayout.pSetLayouts = &_drawImageDescriptorLayout;
+    computeLayout.setLayoutCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(_device, &computeLayout, nullptr, &_gradientPipelineLayout));
+
+    VkShaderModule computeDrawShader;
+    if (!vkutil::load_shader_module("./shaders/gradient.comp.spv", _device, &computeDrawShader)) {
+        fmt::print("Failed to load compute shader\n");
+    }
+
+    VkPipelineShaderStageCreateInfo stageInfo = {};
+    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageInfo.pNext = nullptr;
+    stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    stageInfo.module = computeDrawShader;
+    stageInfo.pName = "main";
+
+    VkComputePipelineCreateInfo computePipelineCreateInfo = {};
+    computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    computePipelineCreateInfo.pNext = nullptr;
+    computePipelineCreateInfo.layout = _gradientPipelineLayout;
+    computePipelineCreateInfo.stage = stageInfo;
+
+    VK_CHECK(vkCreateComputePipelines(_device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &_gradientPipeline));
+
+    vkDestroyShaderModule(_device, computeDrawShader, nullptr);
+
+    _mainDeletionQueue.push_function([this]() {
+        vkDestroyPipelineLayout(_device, _gradientPipelineLayout, nullptr);
+        vkDestroyPipeline(_device, _gradientPipeline, nullptr);
+    });
+}
+
 void VulkanEngine::create_swapchain(uint32_t width, uint32_t height) {
     vkb::SwapchainBuilder swapchainBuilder{ _chosenGPU, _device, _surface };
 
@@ -364,15 +407,14 @@ void VulkanEngine::draw() {
 }
 
 void VulkanEngine::draw_background(VkCommandBuffer cmd) {
-    //make a clear-color from frame number. This will flash with a 120 frame period.
-    VkClearColorValue clearValue;
-    float flash = abs(sin(_frameNumber / 120.f));
-    clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
+    // bind the gradient drawing compute pipeline
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipeline);
 
-    VkImageSubresourceRange clearRange = vkinit::image_subresource_range(VK_IMAGE_ASPECT_COLOR_BIT);
+    // bind the descriptor set containing the draw image for the compute pipeline
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _gradientPipelineLayout, 0, 1, &_drawImageDescriptors, 0, nullptr);
 
-    // clear image
-    vkCmdClearColorImage(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+    // execute the compute pipeline dispatch. We are using 16x16 workgroup size so we need to divide by it
+    vkCmdDispatch(cmd, std::ceil(_drawExtent.width / 16.0), std::ceil(_drawExtent.height), 1);
 }
 
 void VulkanEngine::run() {
