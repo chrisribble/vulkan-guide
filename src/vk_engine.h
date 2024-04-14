@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <vk_loader.h>
 #include <vk_descriptors.h>
 #include <vk_types.h>
 #include <vulkan/vulkan_core.h>
@@ -95,9 +96,10 @@ public:
 	VkPipeline _meshPipeline;
 
 	GPUMeshBuffers rectangle;
+	std::vector<std::shared_ptr<MeshAsset>> testMeshes;
 
 	VmaAllocator _allocator;
-	DeletionQueue _mainDeletionQueue;
+	DeletionQueue _mainDeletionQueue; 
 
 	// draw resources
 	AllocatedImage _drawImage;
@@ -121,7 +123,7 @@ public:
 	void run();
 
 	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
-
+	GPUMeshBuffers upload_mesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 private:
 
 	void init_vulkan();
@@ -145,5 +147,4 @@ private:
 
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 	void destroy_buffer(const AllocatedBuffer& buffer);
-	GPUMeshBuffers upload_mesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 };

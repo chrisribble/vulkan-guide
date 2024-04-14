@@ -1,6 +1,7 @@
 ﻿//> includes
 #include "fmt/core.h"
 #include "vk_pipelines.h"
+#include <iostream>
 #include <vk_engine.h>
 #include <VkBootstrap.h>
 
@@ -116,6 +117,7 @@ void VulkanEngine::init_vulkan() {
     vmaCreateAllocator(&allocatorInfo, &_allocator);
 
     _mainDeletionQueue.push_function([this]() {
+        fmt::println("Destroying vma allocator pool");
         vmaDestroyAllocator(_allocator);
     });
 }
@@ -157,6 +159,7 @@ void VulkanEngine::init_swapchain() {
 
     //add to deletion queues
     _mainDeletionQueue.push_function([this]() {
+        fmt::println("Destroying image view");
         vkDestroyImageView(_device, _drawImage.imageView, nullptr);
         vmaDestroyImage(_allocator, _drawImage.image, _drawImage.allocation);
     });
@@ -184,6 +187,7 @@ void VulkanEngine::init_commands() {
     VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_immCommandBuffer));
 
     _mainDeletionQueue.push_function([this]() {
+        fmt::println("Destroying command pool");
         vkDestroyCommandPool(_device, _immCommandPool, nullptr);
     });
 }
@@ -456,6 +460,8 @@ void VulkanEngine::init_default_data() {
 	rect_indices[5] = 3;
 
     rectangle = upload_mesh(rect_indices, rect_vertices);
+
+    testMeshes = load_gltf_meshes(this, "./assets/basicmesh.glb").value();
 }
 
 void VulkanEngine::init_imgui() {
@@ -515,6 +521,7 @@ void VulkanEngine::init_imgui() {
 
     // destroy imgui created structures on shutdown
     _mainDeletionQueue.push_function([=, this]() {
+        fmt::println("Destroying descriptor pool");
         vkDestroyDescriptorPool(_device, imguiPool, nullptr);
         ImGui_ImplVulkan_Shutdown();
     });
@@ -724,8 +731,13 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd) {
 
     vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
     vkCmdBindIndexBuffer(cmd, rectangle.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
     vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+
+    pushConstants.vertexBuffer = testMeshes[2]->meshBuffers.vertexBufferAddress;
+
+    vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
+    vkCmdBindIndexBuffer(cmd, testMeshes[2]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(cmd, testMeshes[2]->surfaces[0].count, 1, testMeshes[2]->surfaces[0].startIndex, 0, 0);
 
     vkCmdEndRendering(cmd);
 }
