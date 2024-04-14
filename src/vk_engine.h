@@ -88,9 +88,13 @@ public:
 	
 	VkPipelineLayout _gradientPipelineLayout;
 	VkPipelineLayout _trianglePipelineLayout;
+	VkPipelineLayout _meshPipelineLayout;
 
 	VkPipeline _gradientPipeline;
 	VkPipeline _trianglePipeline;
+	VkPipeline _meshPipeline;
+
+	GPUMeshBuffers rectangle;
 
 	VmaAllocator _allocator;
 	DeletionQueue _mainDeletionQueue;
@@ -128,6 +132,8 @@ private:
 	void init_pipelines();
 	void init_background_pipelines();
 	void init_triangle_pipeline();
+	void init_mesh_pipeline();
+	void init_default_data();
 	void init_imgui();
 
 	void create_swapchain(uint32_t width, uint32_t height);
@@ -136,4 +142,8 @@ private:
 	void draw_background(VkCommandBuffer cmd);
 	void draw_geometry(VkCommandBuffer cmd);
 	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
+
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	void destroy_buffer(const AllocatedBuffer& buffer);
+	GPUMeshBuffers upload_mesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 };
