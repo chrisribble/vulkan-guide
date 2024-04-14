@@ -1,6 +1,7 @@
 ﻿//> includes
 #include "fmt/core.h"
 #include "vk_pipelines.h"
+#include <glm/gtx/transform.hpp>
 #include <iostream>
 #include <vk_engine.h>
 #include <VkBootstrap.h>
@@ -734,6 +735,15 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd) {
     vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
 
     pushConstants.vertexBuffer = testMeshes[2]->meshBuffers.vertexBufferAddress;
+
+    glm::mat4 view = glm::translate(glm::vec3 { 0, 0, -5 });
+    // camera projection
+    glm::mat4 projection = glm::perspective(glm::radians(70.f), (float)_drawExtent.width / (float)_drawExtent.height, 10000.f, 0.1f);
+
+    // invert the Y direction on projection matrix so that we are more similar to opengl and gltf axis
+    projection[1][1] *= -1;
+
+    pushConstants.worldMatrix = projection * view;
 
     vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(GPUDrawPushConstants), &pushConstants);
     vkCmdBindIndexBuffer(cmd, testMeshes[2]->meshBuffers.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
