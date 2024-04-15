@@ -831,7 +831,7 @@ void VulkanEngine::run() {
         if (ImGui::Begin("background")) {
             ComputeEffect& selected = backgroundEffects[currentBackgroundEffect];
 
-            ImGui::Text("Selected effect: ", selected.name);
+            ImGui::Text("Selected effect: %s", selected.name);
 
             ImGui::SliderInt("Effect Index", &currentBackgroundEffect, 0, backgroundEffects.size() - 1);
 
