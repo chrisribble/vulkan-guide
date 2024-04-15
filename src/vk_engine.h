@@ -88,14 +88,11 @@ public:
 	VkDescriptorSetLayout _drawImageDescriptorLayout;
 	
 	VkPipelineLayout _gradientPipelineLayout;
-	VkPipelineLayout _trianglePipelineLayout;
 	VkPipelineLayout _meshPipelineLayout;
 
 	VkPipeline _gradientPipeline;
-	VkPipeline _trianglePipeline;
 	VkPipeline _meshPipeline;
 
-	GPUMeshBuffers rectangle;
 	std::vector<std::shared_ptr<MeshAsset>> testMeshes;
 
 	VmaAllocator _allocator;
@@ -134,7 +131,6 @@ private:
 	void init_descriptors();
 	void init_pipelines();
 	void init_background_pipelines();
-	void init_triangle_pipeline();
 	void init_mesh_pipeline();
 	void init_default_data();
 	void init_imgui();
