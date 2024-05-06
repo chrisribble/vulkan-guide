@@ -65,6 +65,8 @@ public:
 
 	static VulkanEngine& Get();
 
+	bool resize_requested;
+
 	VkInstance _instance; // vulkan library handle
 	VkDebugUtilsMessengerEXT _debug_messenger; // Vilkan debug output handle
 	VkPhysicalDevice _chosenGPU; // GPU chosen as the default device
@@ -102,6 +104,7 @@ public:
 	AllocatedImage _drawImage;
 	AllocatedImage _depthImage;
 	VkExtent2D _drawExtent;
+	float renderScale = 1.f;
 
 	// immediate submit structures
 	VkFence _immFence;
@@ -136,6 +139,7 @@ private:
 	void init_imgui();
 
 	void create_swapchain(uint32_t width, uint32_t height);
+	void resize_swapchain();
 	void destroy_swapchain();
 
 	void draw_background(VkCommandBuffer cmd);
